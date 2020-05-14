@@ -25,7 +25,28 @@
 //If this is set to 1, debug information will be printed to the serial port.
 #define DEBUG 1
 
+#include <Arduino.h>
 #include <PololuLedStrip.h>
+
+
+// Function Declarations
+void serialFlush();
+void initButtons();
+int checkButtons();
+void pattern0(byte);
+void pattern1(byte);
+void pattern2(byte);
+void pattern3(byte);
+void pattern4(byte);
+void pattern5(byte);
+void pattern6(byte);
+void pattern7(byte);
+void pattern21(byte);
+void pattern22(byte);
+void pattern24(byte);
+void pattern25(byte);
+void pattern27(byte);
+
 
 // Create an ledStrip object on pin 12 and pin 11.
 //These are the front and back lights
@@ -126,7 +147,7 @@ void loop()
       Serial.print("First number read - ");
       Serial.println(next);
     }
-    //If the first character is a number 0-9 then turn off the front light strip and write the character to the front variable. 
+    //If the first character is a number 0-9 then turn off the front light strip and write the character to the front variable.
     if ((next >= '0') && (next <= '9'))
     {
       pattern0(FRONT);
@@ -169,7 +190,8 @@ void loop()
     Serial.println(".");
   }
   //Read in the values of the buttons.
-  int tmp = checkButtons();
+  //int tmp = checkButtons();
+  int tmp = -1;
   //If any of the buttons were pushed then change the lights.
   if(tmp >= 0){
     if(DEBUG){
@@ -1242,3 +1264,607 @@ void pattern7(byte side)
   }
 }
 
+
+//This method flashes all red and then all white.
+void pattern21(byte side)
+{
+  //Check what pattern that is currently running on the side that was passed in.
+  //If the current pattern is different than this method's pattern the enviroment needs to be reset to the default values.
+  if (enviroments[side].currentPattern != 1)
+  {
+    enviroments[side].currentPattern = 1;
+    enviroments[side].delays[0] = 100;
+    enviroments[side].counters[0] = 1;
+    enviroments[side].lastTimes[0] = millis();
+  }
+  //Check if the delay has elapsed.
+  //If the delay has not yet elapsed, hand control of the proccessor back to the main loop.
+  if (millis() > (enviroments[side].lastTimes[0] + enviroments[side].delays[0]))
+  {
+    //If the counter is odd then set the LED array to red.
+    //If it is even then set the array to blue.
+    if ((enviroments[side].counters[0] % 2) == 1)
+    {
+      for (byte i = 0; i < LED_COUNT; i++)
+      {
+        if (side == FRONT)
+        {
+          colors11[i] = red;
+        }
+        else
+        {
+          colors12[i] = red;
+        }
+      }
+    }
+    else
+    {
+      for (byte i = 0; i < LED_COUNT; i++)
+      {
+        if (side == FRONT)
+        {
+          colors11[i] = white;
+        }
+        else
+        {
+          colors12[i] = white;
+        }
+      }
+    }
+    //Write the appropriate array to the appropriate LED strip.
+    if (side == FRONT)
+    {
+      ledStrip11.write(colors11, LED_COUNT);
+    }
+    else
+    {
+      ledStrip12.write(colors12, LED_COUNT);
+    }
+    //Increment the counter and if it is greater than 2 roll it back to 1.
+    enviroments[side].counters[0]++;
+    if (enviroments[side].counters[0] == 3)
+    {
+      enviroments[side].counters[0] = 1;
+    }
+    //Set the last run time to the current time.
+    enviroments[side].lastTimes[0] = millis();
+  }
+}
+
+
+void pattern22(byte side)
+{
+  if (enviroments[side].currentPattern != 2)
+  {
+    enviroments[side].currentPattern = 2;
+    enviroments[side].delays[0] = 100;
+    enviroments[side].counters[0] = 1;
+    enviroments[side].lastTimes[0] = millis();
+  }
+  if (millis() > (enviroments[side].lastTimes[0] + enviroments[side].delays[0]))
+  {
+    if ((enviroments[side].counters[0] % 2) == 1)
+    {
+      for (byte i = 0; i < LED_COUNT; i += 2)
+      {
+        if (side == FRONT)
+        {
+          colors11[i] = red;
+        }
+        else
+        {
+          colors12[i] = red;
+        }
+      }
+      for (byte i = 1; i < LED_COUNT; i += 2)
+      {
+        if (side == FRONT)
+        {
+          colors11[i] = white;
+        }
+        else
+        {
+          colors12[i] = white;
+        }
+      }
+    }
+    else
+    {
+      for (byte i = 0; i < LED_COUNT; i += 2)
+      {
+        if (side == FRONT)
+        {
+          colors11[i] = white;
+        }
+        else
+        {
+          colors12[i] = white;
+        }
+      }
+      for (byte i = 1; i < LED_COUNT; i += 2)
+      {
+        if (side == FRONT)
+        {
+          colors11[i] = red;
+        }
+        else
+        {
+          colors12[i] = red;
+        }
+      }
+    }
+    if (side == FRONT)
+    {
+      ledStrip11.write(colors11, LED_COUNT);
+    }
+    else
+    {
+      ledStrip12.write(colors12, LED_COUNT);
+    }
+
+    enviroments[side].counters[0]++;
+    if (enviroments[side].counters[0] == 3)
+    {
+      enviroments[side].counters[0] = 1;
+    }
+    enviroments[side].lastTimes[0] = millis();
+  }
+}
+
+
+void pattern24(byte side)
+{
+  if (enviroments[side].currentPattern != 4)
+  {
+    enviroments[side].currentPattern = 4;
+    enviroments[side].delays[0] = 50;
+    enviroments[side].delays[1] = 500;
+    enviroments[side].counters[0] = 1;
+    enviroments[side].counters[1] = 1;
+    enviroments[side].lastTimes[0] = millis();
+    enviroments[side].lastTimes[1] = millis();
+  }
+  if (millis() > (enviroments[side].lastTimes[0] + enviroments[side].delays[0]))
+  {
+    if (enviroments[side].counters[0] < 7)
+    {
+      if ((enviroments[side].counters[0] % 2) == 1)
+      {
+        if (side == FRONT)
+        {
+          colors11[0] = white;
+          colors11[4] = white;
+          ledStrip11.write(colors11, LED_COUNT);
+        }
+        else
+        {
+          colors12[0] = white;
+          colors12[4] = white;
+          ledStrip12.write(colors12, LED_COUNT);
+        }
+      }
+      else
+      {
+        if (side == FRONT)
+        {
+          colors11[0] = off;
+          colors11[4] = off;
+          ledStrip11.write(colors11, LED_COUNT);
+        }
+        else
+        {
+          colors12[0] = off;
+          colors12[4] = off;
+          ledStrip12.write(colors12, LED_COUNT);
+        }
+        colors11[0] = off;
+        colors11[4] = off;
+        ledStrip11.write(colors11, LED_COUNT);
+      }
+    }
+    else if (enviroments[side].counters[0] > 6)
+    {
+      if ((enviroments[side].counters[0] % 2) == 1)
+      {
+        if (side == FRONT)
+        {
+          colors11[5] = red;
+          colors11[9] = red;
+          ledStrip11.write(colors11, LED_COUNT);
+        }
+        else
+        {
+          colors12[5] = red;
+          colors12[9] = red;
+          ledStrip12.write(colors12, LED_COUNT);
+        }
+      }
+      else
+      {
+        if (side == FRONT)
+        {
+          colors11[5] = off;
+          colors11[9] = off;
+          ledStrip11.write(colors11, LED_COUNT);
+        }
+        else
+        {
+          colors12[5] = off;
+          colors12[9] = off;
+          ledStrip12.write(colors12, LED_COUNT);
+        }
+      }
+    }
+    enviroments[side].counters[0]++;
+    if (enviroments[side].counters[0] == 13)
+    {
+      enviroments[side].counters[0] = 1;
+    }
+    enviroments[side].lastTimes[0] = millis();
+  }
+  if (millis() > (enviroments[side].lastTimes[1] + enviroments[side].delays[1]))
+  {
+    if (enviroments[side].counters[1] == 7)
+    {
+      for (byte i = 2; i < 4; i++)
+      {
+        if (side == FRONT)
+        {
+          colors11[i] = off;
+        }
+        else
+        {
+          colors12[i] = off;
+        }
+      }
+      for (byte i = 6; i < 9; i++)
+      {
+        if (side == FRONT)
+        {
+          colors11[i] = off;
+        }
+        else
+        {
+          colors12[i] = off;
+        }
+      }
+      if (side == FRONT)
+      {
+        ledStrip11.write(colors11, LED_COUNT);
+      }
+      else
+      {
+        ledStrip12.write(colors12, LED_COUNT);
+      }
+      enviroments[side].counters[1] = 1;
+    }
+    if (enviroments[side].counters[1] < 4)
+    {
+      if (side == FRONT)
+      {
+        colors11[enviroments[side].counters[1]] = yellow;
+      }
+      else
+      {
+        colors12[enviroments[side].counters[1]] = yellow;
+      }
+    }
+    else
+    {
+      if (side == FRONT)
+      {
+        colors11[enviroments[side].counters[1] + 2] = yellow;
+      }
+      else
+      {
+        colors12[enviroments[side].counters[1] + 2] = yellow;
+      }
+    }
+    enviroments[side].counters[1]++;
+    enviroments[side].lastTimes[1] = millis();
+  }
+}
+
+void pattern25(byte side)
+{
+  if (enviroments[side].currentPattern != 5)
+  {
+    enviroments[side].currentPattern = 5;
+    enviroments[side].delays[0] = 50;
+    enviroments[side].delays[1] = 500;
+    enviroments[side].counters[0] = 1;
+    enviroments[side].counters[1] = 1;
+    enviroments[side].lastTimes[0] = millis();
+    enviroments[side].lastTimes[1] = millis();
+  }
+  if (millis() > (enviroments[side].lastTimes[0] + enviroments[side].delays[0]))
+  {
+    if (enviroments[side].counters[0] < 7)
+    {
+      if ((enviroments[side].counters[0] % 2) == 1)
+      {
+        if (side == FRONT)
+        {
+          colors11[0] = white;
+          colors11[4] = white;
+          ledStrip11.write(colors11, LED_COUNT);
+        }
+        else
+        {
+          colors12[0] = white;
+          colors12[4] = white;
+          ledStrip12.write(colors12, LED_COUNT);
+        }
+      }
+      else
+      {
+        if (side == FRONT)
+        {
+          colors11[0] = off;
+          colors11[4] = off;
+          ledStrip11.write(colors11, LED_COUNT);
+        }
+        else
+        {
+          colors12[0] = off;
+          colors12[4] = off;
+          ledStrip12.write(colors12, LED_COUNT);
+        }
+        colors11[0] = off;
+        colors11[4] = off;
+        ledStrip11.write(colors11, LED_COUNT);
+      }
+    }
+    else if (enviroments[side].counters[0] > 6)
+    {
+      if ((enviroments[side].counters[0] % 2) == 1)
+      {
+        if (side == FRONT)
+        {
+          colors11[5] = red;
+          colors11[9] = red;
+          ledStrip11.write(colors11, LED_COUNT);
+        }
+        else
+        {
+          colors12[5] = red;
+          colors12[9] = red;
+          ledStrip12.write(colors12, LED_COUNT);
+        }
+      }
+      else
+      {
+        if (side == FRONT)
+        {
+          colors11[5] = off;
+          colors11[9] = off;
+          ledStrip11.write(colors11, LED_COUNT);
+        }
+        else
+        {
+          colors12[5] = off;
+          colors12[9] = off;
+          ledStrip12.write(colors12, LED_COUNT);
+        }
+      }
+    }
+    enviroments[side].counters[0]++;
+    if (enviroments[side].counters[0] == 13)
+    {
+      enviroments[side].counters[0] = 1;
+    }
+    enviroments[side].lastTimes[0] = millis();
+  }
+  if (millis() > (enviroments[side].lastTimes[1] + enviroments[side].delays[1]))
+  {
+    if (enviroments[side].counters[1] == 7)
+    {
+      for (byte i = 1; i < 4; i++)
+      {
+        if (side == FRONT)
+        {
+          colors11[i] = off;
+        }
+        else
+        {
+          colors12[i] = off;
+        }
+      }
+      for (byte i = 6; i < 8; i++)
+      {
+        if (side == FRONT)
+        {
+          colors11[i] = off;
+        }
+        else
+        {
+          colors12[i] = off;
+        }
+      }
+      if (side == FRONT)
+      {
+        ledStrip11.write(colors11, LED_COUNT);
+      }
+      else
+      {
+        ledStrip12.write(colors12, LED_COUNT);
+      }
+      enviroments[side].counters[1] = 1;
+    }
+    if (enviroments[side].counters[1] < 4)
+    {
+      if (side == FRONT)
+      {
+        colors11[9 - enviroments[side].counters[1]] = yellow;
+      }
+      else
+      {
+        colors12[9 - enviroments[side].counters[1]] = yellow;
+      }
+    }
+    else
+    {
+      if (side == FRONT)
+      {
+        colors11[7 - enviroments[side].counters[1]] = yellow;
+      }
+      else
+      {
+        colors12[7 - enviroments[side].counters[1]] = yellow;
+      }
+    }
+    enviroments[side].counters[1]++;
+    enviroments[side].lastTimes[1] = millis();
+  }
+}
+
+
+void pattern27(byte side)
+{
+  /*
+            |Light1|Light2|Light3|....
+   color    |0(red)|1(blu)|...........
+   delay    |15(ms)|12(ms)|...........
+   lastTime |32(ms)|98(ms)|..millis().
+   pos      |  0   |  3   |...........
+   */
+  if (enviroments[side].currentPattern != 7)
+  {
+    enviroments[side].currentPattern = 7;
+    enviroments[side].minDelay = 100;
+    enviroments[side].maxDelay = 200;
+    for (byte i = 0; i < 3; i++)
+    {
+      enviroments[side].lights[0][i] = 0;
+    }
+    for (byte i = 3; i < 6; i++)
+    {
+      enviroments[side].lights[0][i] = 1;
+    }
+    randomSeed(analogRead(0));
+    for (byte i = 0; i < 6; i++)
+    {
+      enviroments[side].lights[1][i] = (int)random(enviroments[side].minDelay, enviroments[side].maxDelay + 1);
+    }
+    for (byte i = 0; i < 6; i++)
+    {
+      enviroments[side].lights[2][i] = millis();
+    }
+    for (byte i = 0; i < 6; i++)
+    {
+      int tmp;
+      bool avail;
+      do
+      {
+        tmp = (int)random(0, LED_COUNT);
+        avail = true;
+        for (byte j = 0; j < 6; j++)
+        {
+          if (enviroments[side].lights[3][j] == tmp)
+          {
+            avail = false;
+            break;
+          }
+        }
+      }
+      while (!avail);
+      enviroments[side].lights[3][i] = tmp;
+    }
+    for (byte i = 0; i < 6; i++)
+    {
+      if (enviroments[side].lights[0][i] == 0)
+      {
+        if (side == FRONT)
+        {
+          colors11[enviroments[side].lights[3][i]] = red;
+        }
+        else
+        {
+          colors12[enviroments[side].lights[3][i]] = red;
+        }
+      }
+      else
+      {
+        if (side == FRONT)
+        {
+          colors11[enviroments[side].lights[3][i]] = white;
+        }
+        else
+        {
+          colors12[enviroments[side].lights[3][i]] = white;
+        }
+      }
+    }
+    if (side == FRONT)
+    {
+      ledStrip11.write(colors11, LED_COUNT);
+    }
+    else
+    {
+      ledStrip12.write(colors12, LED_COUNT);
+    }
+  }
+  for (byte i = 0; i < 6; i++)
+  {
+    if (millis() > (long)(enviroments[side].lights[2][i] + enviroments[side].lights[1][i]))
+    {
+      if (side == FRONT)
+      {
+        colors11[enviroments[side].lights[3][i]] = off;
+      }
+      else
+      {
+        colors12[enviroments[side].lights[3][i]] = off;
+      }
+      int tmp;
+      bool avail;
+      do
+      {
+        tmp = (int)random(0, LED_COUNT);
+        avail = true;
+        for (byte j = 0; j < 6; j++)
+        {
+          if (enviroments[side].lights[3][j] == tmp)
+          {
+            avail = false;
+            break;
+          }
+        }
+      }
+      while (!avail);
+      enviroments[side].lights[3][i] = tmp;
+      if (enviroments[side].lights[0][i] == 0)
+      {
+        if (side == FRONT)
+        {
+          colors11[enviroments[side].lights[3][i]] = red;
+        }
+        else
+        {
+          colors12[enviroments[side].lights[3][i]] = red;
+        }
+      }
+      else
+      {
+        if (side == FRONT)
+        {
+          colors11[enviroments[side].lights[3][i]] = white;
+        }
+        else
+        {
+          colors12[enviroments[side].lights[3][i]] = white;
+        }
+      }
+      enviroments[side].lights[1][i] = (int)random(enviroments[side].minDelay, enviroments[side].maxDelay + 1);
+      enviroments[side].lights[2][i] = millis();
+      if (side == FRONT)
+      {
+        ledStrip11.write(colors11, LED_COUNT);
+      }
+      else
+      {
+        ledStrip12.write(colors12, LED_COUNT);
+      }
+    }
+  }
+}

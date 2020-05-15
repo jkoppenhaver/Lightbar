@@ -27,9 +27,13 @@
 
 #include <Arduino.h>
 #include <PololuLedStrip.h>
+#include <stdlib.h>
 
 
 // Function Declarations
+bool serialReadChar();
+void parseSerialBuf();
+void clearSerialBuf();
 void serialFlush();
 void initButtons();
 int checkButtons();
@@ -80,7 +84,7 @@ const rgb_color blue = {
   0, 255, 0
 };
 const rgb_color white = {
-  100, 150, 255
+  100, 150, 215
 };
 const rgb_color yellow = {
   255, 0, 255
@@ -101,10 +105,10 @@ struct enviroment
   //This holds the number of the pattern currently running in that process
   byte currentPattern;
   //These holds upto 3 seperate sets of delay variables.
-  int delays[3];
-  int counters[3];
-  long lastTimes[3];
-  long lights[4][6];
+  unsigned int delays[3];
+  unsigned int counters[3];
+  unsigned long lastTimes[3];
+  unsigned long lights[4][6];
   //These variables are used for pattern 7 only....
   int minDelay;
   int maxDelay;
@@ -132,62 +136,58 @@ void setup()
 int front = 0;
 int rear = 0;
 
+bool serialReadingDone = false;
+char serialBuf[20];
+char *serialInPtr = serialBuf;
+
+bool serialReadChar(){
+  if(serialInPtr > &serialBuf[20]){
+    clearSerialBuf();
+  }
+  *serialInPtr = Serial.read();
+  if(*serialInPtr == '\n'){
+    *serialInPtr = '\0';
+    return true;
+  }
+  serialInPtr++;
+  return false;
+}
+
+void parseSerialBuf(){
+  Serial.println("Parsing");
+  char *rearStr = serialBuf;
+  while(*rearStr != ':'  && *rearStr != '\0'){
+    rearStr++;
+  }
+  if(*rearStr == ':'){
+    *(rearStr++) = '\0';
+  }
+  else{
+    rearStr = serialBuf;
+  }
+  front = atoi(serialBuf);
+  rear = atoi(rearStr);
+  clearSerialBuf();
+  serialFlush();
+}
+
+void clearSerialBuf(){
+  serialInPtr = serialBuf;
+  for(int i = 0;i < 20;i++){
+    serialBuf[i] = 0;
+  }
+  return;
+}
+
 //This method will loop for as long as the microprocessor is powered.
 void loop()
 {
   //Check to see if there is any data from the serial port waiting in the buffer.
   if (Serial.available())
   {
-    //If there is data it needs to be handled.
-    //Read in the first character.
-    char next = Serial.read();
-    //If debug is enabled print some information to the serial port.
-    if(DEBUG){
-      Serial.print("DEBUG:");
-      Serial.print("First number read - ");
-      Serial.println(next);
+    if(serialReadChar()){
+      parseSerialBuf();
     }
-    //If the first character is a number 0-9 then turn off the front light strip and write the character to the front variable.
-    if ((next >= '0') && (next <= '9'))
-    {
-      pattern0(FRONT);
-      //This converts the ascii character to an int.
-      //If this is confusing then look at the characters and integer values on an ascii table.
-      front = next - 48;
-    }
-    //If the next character is not a ':' and there is still more data then throw out the current character and read in the next one.
-    while ((next != ':') && (Serial.available()))
-    {
-      next = Serial.read();
-    }
-    //Throw out the colon and read in the next character.
-    next = Serial.read();
-    //If debug is enabled print some information to the serial port.
-    if(DEBUG){
-      Serial.print("DEBUG:");
-      Serial.print("Second number read - ");
-      Serial.println(next);
-      Serial.print("DEBUG:");
-      Serial.print("Second number present - ");
-      Serial.println((next >= '0') && (next <= '9'));
-    }
-    //If the character after the ':' is a number 0-9 then turn off the rear light strip and write the character to the rear variable.
-    if ((next >= '0') && (next <= '9'))
-    {
-      pattern0(REAR);
-      //This converts the ascii character to an int.
-      //If this is confusing then look at the characters and integer values on an ascii table.
-      rear = next - 48;
-    }
-    //Clear any remaining characters from the serial buffer.
-    serialFlush();
-    //Print out the front and rear patterns to the serial port.
-    Serial.print("Front lights set to pattern ");
-    Serial.print(front);
-    Serial.println(".");
-    Serial.print("Rear lights set to pattern ");
-    Serial.print(rear);
-    Serial.println(".");
   }
   //Read in the values of the buttons.
   //int tmp = checkButtons();
@@ -239,6 +239,21 @@ void loop()
   case 7:
     pattern7(FRONT);
     break;
+  case 21:
+    pattern21(FRONT);
+    break;
+  case 22:
+    pattern22(FRONT);
+    break;
+  case 24:
+    pattern24(FRONT);
+    break;
+  case 25:
+    pattern25(FRONT);
+    break;
+  case 27:
+    pattern27(FRONT);
+    break;
   }
   //This switch case calls the pattern method for whichever pattern is currently on the rear LEDs.
   //When a pattern method is called the main loop hands control of the proccesor to the pattern method so it can update the lights.
@@ -268,6 +283,21 @@ void loop()
     break;
   case 7:
     pattern7(REAR);
+    break;
+  case 21:
+    pattern21(REAR);
+    break;
+  case 22:
+    pattern22(REAR);
+    break;
+  case 24:
+    pattern24(REAR);
+    break;
+  case 25:
+    pattern25(REAR);
+    break;
+  case 27:
+    pattern27(REAR);
     break;
   }
   //This is the end of one loop, this method will continue to loop.
@@ -304,7 +334,7 @@ void initButtons()
 int checkButtons(){
   //Initiate a timer for debounce.
   //A static variable will only be initiated once so its value is kept between method calls.
-  static long debounceTimer;
+  static unsigned long debounceTimer;
   //Check to see if the select button was pressed and to see if enough time has passed since the last press for debounce.
   if((digitalRead(frontRearSelect) == 0) && ((debounceTimer + 750) < millis())){
     //If it was pressed, toggle the activeEdit and set the front indicator accordingly.
@@ -1139,7 +1169,7 @@ void pattern7(byte side)
     randomSeed(analogRead(0));
     for (byte i = 0; i < 6; i++)
     {
-      enviroments[side].lights[1][i] = (int)random(enviroments[side].minDelay, enviroments[side].maxDelay + 1);
+      enviroments[side].lights[1][i] = (unsigned long)random(enviroments[side].minDelay, enviroments[side].maxDelay + 1);
     }
     for (byte i = 0; i < 6; i++)
     {
@@ -1147,7 +1177,7 @@ void pattern7(byte side)
     }
     for (byte i = 0; i < 6; i++)
     {
-      int tmp;
+      unsigned long tmp;
       bool avail;
       do
       {
@@ -1201,7 +1231,7 @@ void pattern7(byte side)
   }
   for (byte i = 0; i < 6; i++)
   {
-    if (millis() > (long)(enviroments[side].lights[2][i] + enviroments[side].lights[1][i]))
+    if (millis() > enviroments[side].lights[2][i] + enviroments[side].lights[1][i])
     {
       if (side == FRONT)
       {
@@ -1211,7 +1241,7 @@ void pattern7(byte side)
       {
         colors12[enviroments[side].lights[3][i]] = off;
       }
-      int tmp;
+      unsigned long tmp;
       bool avail;
       do
       {
@@ -1752,7 +1782,7 @@ void pattern27(byte side)
     }
     for (byte i = 0; i < 6; i++)
     {
-      int tmp;
+      unsigned long tmp;
       bool avail;
       do
       {
@@ -1806,7 +1836,7 @@ void pattern27(byte side)
   }
   for (byte i = 0; i < 6; i++)
   {
-    if (millis() > (long)(enviroments[side].lights[2][i] + enviroments[side].lights[1][i]))
+    if (millis() > enviroments[side].lights[2][i] + enviroments[side].lights[1][i])
     {
       if (side == FRONT)
       {
@@ -1816,7 +1846,7 @@ void pattern27(byte side)
       {
         colors12[enviroments[side].lights[3][i]] = off;
       }
-      int tmp;
+      unsigned long tmp;
       bool avail;
       do
       {

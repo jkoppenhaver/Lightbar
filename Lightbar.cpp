@@ -2,9 +2,8 @@
  *  Description: Police Lightbar
  *  Filename:    Lightbar.ino
  *  Author:      J. Koppenhaver
- *  Libraries:   PololuLedStrip.h
- *    https://github.com/pololu/pololu-led-strip-arduino/releases/tag/1.2.0
- *    (Must use 1.2.0 to work with these strips.)
+ *  Libraries:   FastLED.h
+ *    https://github.com/FastLED/FastLED
  *    The radio shack LED strips have 10 groups of 3 LEDs so if the strip
  *    being used has individually addressable LEDs some modification might
  *    be required.
@@ -26,7 +25,7 @@
 #define DEBUG 1
 
 #include <Arduino.h>
-#include <PololuLedStrip.h>
+#include <FastLED.h>
 #include <stdlib.h>
 
 
@@ -52,19 +51,11 @@ void pattern24(byte);
 void pattern25(byte);
 void pattern27(byte);
 
-
-// Create an ledStrip object on pin 12 and pin 11.
-//These are the front and back lights
-PololuLedStrip<9> ledStrip09;
-PololuLedStrip<10> ledStrip10;
-PololuLedStrip<11> ledStrip11;
-PololuLedStrip<12> ledStrip12;
-
 // Create a buffer for holding 10 colors.  Takes 30 bytes.
 //One for each LED strip
 #define LED_COUNT 10
-rgb_color rear_buffer[LED_COUNT];
-rgb_color front_buffer[LED_COUNT];
+CRGB front_buffer[LED_COUNT];
+CRGB rear_buffer[LED_COUNT];
 
 //Constant array to hold the pin numbers for the pattern select buttons
 const byte buttonPins[] = {
@@ -79,22 +70,12 @@ const byte frontIndicator = 13;
 byte activeEdit;
 
 //Constants to hold the colors used in the patterns
-//color = {R,B,G}
-const rgb_color red = {
-  255, 0, 0
-};
-const rgb_color blue = {
-  0, 255, 0
-};
-const rgb_color white = {
-  100, 150, 215
-};
-const rgb_color yellow = {
-  255, 0, 255
-};
-const rgb_color off = {
-  0, 0, 0
-};
+//Blue and Green are switched on this particular chipset 
+const CRGB red = CRGB::Red;
+const CRGB blue = CRGB::Green;
+const CRGB white = CRGB::White;
+const CRGB yellow = CRGB::Magenta;
+const CRGB off = CRGB::Black;
 
 //Define is used to replace the words 'FRONT' and 'REAR' with 0 and 1 respectivly.
 //This is only for code simplicity
@@ -134,6 +115,8 @@ void setup()
   Serial.begin(115200);
   //This method sets up the button pins.
   initButtons();
+  //Setup the light strips
+  setupLights();
 }
 //These two variables tremporarily hold the pattern numbers for the front and back.
 int front = 0;
@@ -353,15 +336,17 @@ int checkButtons(){
   return -1;
 }
 
+void setupLights(){
+  //Setup the lightstrips.  Two for the front and two for the rear
+  FastLED.addLeds<TM1803, 9>(front_buffer, LED_COUNT);
+  FastLED.addLeds<TM1803, 10>(front_buffer, LED_COUNT);
+  FastLED.addLeds<TM1803, 11>(rear_buffer, LED_COUNT);
+  FastLED.addLeds<TM1803, 12>(rear_buffer, LED_COUNT);
+}
+
+
 void updateLights(byte side){
-  if(side == FRONT){
-    ledStrip09.write(front_buffer, LED_COUNT);
-    ledStrip10.write(front_buffer, LED_COUNT);
-  }
-  else{
-    ledStrip11.write(rear_buffer, LED_COUNT);
-    ledStrip12.write(rear_buffer, LED_COUNT);
-  }
+  FastLED.show();
 }
 
 //This method turns all the LEDs off.
@@ -1213,7 +1198,6 @@ void pattern7(byte side)
     }
   }
 }
-
 
 //This method flashes all red and then all white.
 void pattern21(byte side)

@@ -37,6 +37,7 @@ void clearSerialBuf();
 void serialFlush();
 void initButtons();
 int checkButtons();
+void updateLights(byte);
 void pattern0(byte);
 void pattern1(byte);
 void pattern2(byte);
@@ -54,14 +55,16 @@ void pattern27(byte);
 
 // Create an ledStrip object on pin 12 and pin 11.
 //These are the front and back lights
-PololuLedStrip<12> ledStrip12;
+PololuLedStrip<9> ledStrip09;
+PololuLedStrip<10> ledStrip10;
 PololuLedStrip<11> ledStrip11;
+PololuLedStrip<12> ledStrip12;
 
 // Create a buffer for holding 10 colors.  Takes 30 bytes.
 //One for each LED strip
 #define LED_COUNT 10
-rgb_color colors12[LED_COUNT];
-rgb_color colors11[LED_COUNT];
+rgb_color rear_buffer[LED_COUNT];
+rgb_color front_buffer[LED_COUNT];
 
 //Constant array to hold the pin numbers for the pattern select buttons
 const byte buttonPins[] = {
@@ -154,7 +157,6 @@ bool serialReadChar(){
 }
 
 void parseSerialBuf(){
-  Serial.println("Parsing");
   char *rearStr = serialBuf;
   while(*rearStr != ':'  && *rearStr != '\0'){
     rearStr++;
@@ -194,14 +196,6 @@ void loop()
   int tmp = -1;
   //If any of the buttons were pushed then change the lights.
   if(tmp >= 0){
-    if(DEBUG){
-      Serial.print("DEBUG:");
-      Serial.print("Button read - ");
-      Serial.println(tmp);
-      Serial.print("DEBUG:");
-      Serial.print("Current Active Side - ");
-      Serial.println(activeEdit);
-    }
     //Set the pattern read from the button to the currently active led strip.
     if(activeEdit == FRONT){
       front = tmp;
@@ -359,26 +353,37 @@ int checkButtons(){
   return -1;
 }
 
+void updateLights(byte side){
+  if(side == FRONT){
+    ledStrip09.write(front_buffer, LED_COUNT);
+    ledStrip10.write(front_buffer, LED_COUNT);
+  }
+  else{
+    ledStrip11.write(rear_buffer, LED_COUNT);
+    ledStrip12.write(rear_buffer, LED_COUNT);
+  }
+}
+
 //This method turns all the LEDs off.
 void pattern0(byte side)
 {
-  //This loop runs for each of the segments in the LED strip.
-  for (byte i = 0; i < LED_COUNT; i++)
+  //Check what pattern that is currently running on the side that was passed in.
+  //If the current pattern is different than this method's pattern the enviroment needs to be reset to the default values.
+  if (enviroments[side].currentPattern != 0)
   {
-    //Set the appropriate LED Strip segment to the off.
-    if(side == FRONT){
-      colors11[i] = off;
+    enviroments[side].currentPattern = 0;
+    //This loop runs for each of the segments in the LED strip.
+    for (byte i = 0; i < LED_COUNT; i++)
+    {
+      //Set the appropriate LED Strip segment to the off.
+      if(side == FRONT){
+        front_buffer[i] = off;
+      }
+      else{
+        rear_buffer[i] = off;
+      }
     }
-    else{
-      colors12[i] = off;
-    }
-  }
-  //Write the array data to the LED strips.
-  if(side == FRONT){
-    ledStrip11.write(colors11, LED_COUNT);
-  }
-  else{
-    ledStrip12.write(colors12, LED_COUNT);
+    updateLights(side);
   }
 }
 
@@ -406,11 +411,11 @@ void pattern1(byte side)
       {
         if (side == FRONT)
         {
-          colors11[i] = red;
+          front_buffer[i] = red;
         }
         else
         {
-          colors12[i] = red;
+          rear_buffer[i] = red;
         }
       }
     }
@@ -420,22 +425,13 @@ void pattern1(byte side)
       {
         if (side == FRONT)
         {
-          colors11[i] = blue;
+          front_buffer[i] = blue;
         }
         else
         {
-          colors12[i] = blue;
+          rear_buffer[i] = blue;
         }
       }
-    }
-    //Write the appropriate array to the appropriate LED strip.
-    if (side == FRONT)
-    {
-      ledStrip11.write(colors11, LED_COUNT);
-    }
-    else
-    {
-      ledStrip12.write(colors12, LED_COUNT);
     }
     //Increment the counter and if it is greater than 2 roll it back to 1.
     enviroments[side].counters[0]++;
@@ -445,6 +441,7 @@ void pattern1(byte side)
     }
     //Set the last run time to the current time.
     enviroments[side].lastTimes[0] = millis();
+    updateLights(side);
   }
 }
 
@@ -465,22 +462,22 @@ void pattern2(byte side)
       {
         if (side == FRONT)
         {
-          colors11[i] = red;
+          front_buffer[i] = red;
         }
         else
         {
-          colors12[i] = red;
+          rear_buffer[i] = red;
         }
       }
       for (byte i = 1; i < LED_COUNT; i += 2)
       {
         if (side == FRONT)
         {
-          colors11[i] = blue;
+          front_buffer[i] = blue;
         }
         else
         {
-          colors12[i] = blue;
+          rear_buffer[i] = blue;
         }
       }
     }
@@ -490,34 +487,26 @@ void pattern2(byte side)
       {
         if (side == FRONT)
         {
-          colors11[i] = blue;
+          front_buffer[i] = blue;
         }
         else
         {
-          colors12[i] = blue;
+          rear_buffer[i] = blue;
         }
       }
       for (byte i = 1; i < LED_COUNT; i += 2)
       {
         if (side == FRONT)
         {
-          colors11[i] = red;
+          front_buffer[i] = red;
         }
         else
         {
-          colors12[i] = red;
+          rear_buffer[i] = red;
         }
       }
     }
-    if (side == FRONT)
-    {
-      ledStrip11.write(colors11, LED_COUNT);
-    }
-    else
-    {
-      ledStrip12.write(colors12, LED_COUNT);
-    }
-
+    updateLights(side);
     enviroments[side].counters[0]++;
     if (enviroments[side].counters[0] == 3)
     {
@@ -549,13 +538,11 @@ void pattern3(byte side)
         {
           if (side == FRONT)
           {
-            colors11[i] = blue;
-            ledStrip11.write(colors11, LED_COUNT);
+            front_buffer[i] = blue;
           }
           else
           {
-            colors12[i] = blue;
-            ledStrip12.write(colors12, LED_COUNT);
+            rear_buffer[i] = blue;
           }
         }
       }
@@ -565,16 +552,15 @@ void pattern3(byte side)
         {
           if (side == FRONT)
           {
-            colors11[i] = off;
-            ledStrip11.write(colors11, LED_COUNT);
+            front_buffer[i] = off;
           }
           else
           {
-            colors12[i] = off;
-            ledStrip12.write(colors12, LED_COUNT);
+            rear_buffer[i] = off;
           }
         }
       }
+      updateLights(side);
     }
     else if (enviroments[side].counters[0] > 6)
     {
@@ -584,13 +570,11 @@ void pattern3(byte side)
         {
           if (side == FRONT)
           {
-            colors11[i] = red;
-            ledStrip11.write(colors11, LED_COUNT);
+            front_buffer[i] = red;
           }
           else
           {
-            colors12[i] = red;
-            ledStrip12.write(colors12, LED_COUNT);
+            rear_buffer[i] = red;
           }
         }
       }
@@ -600,16 +584,15 @@ void pattern3(byte side)
         {
           if (side == FRONT)
           {
-            colors11[i] = off;
-            ledStrip11.write(colors11, LED_COUNT);
+            front_buffer[i] = off;
           }
           else
           {
-            colors12[i] = off;
-            ledStrip12.write(colors12, LED_COUNT);
+            rear_buffer[i] = off;
           }
         }
       }
+      updateLights(side);
     }
     enviroments[side].counters[0]++;
     if (enviroments[side].counters[0] == 13)
@@ -624,32 +607,29 @@ void pattern3(byte side)
     {
       if (side == FRONT)
       {
-        colors11[4] = white;
-        colors11[5] = off;
-        ledStrip11.write(colors11, LED_COUNT);
+        front_buffer[4] = white;
+        front_buffer[5] = off;
       }
       else
       {
-        colors12[4] = white;
-        colors12[5] = off;
-        ledStrip12.write(colors12, LED_COUNT);
+        rear_buffer[4] = white;
+        rear_buffer[5] = off;
       }
     }
     else
     {
       if (side == FRONT)
       {
-        colors11[4] = off;
-        colors11[5] = white;
-        ledStrip11.write(colors11, LED_COUNT);
+        front_buffer[4] = off;
+        front_buffer[5] = white;
       }
       else
       {
-        colors12[4] = off;
-        colors12[5] = white;
-        ledStrip12.write(colors12, LED_COUNT);
+        rear_buffer[4] = off;
+        rear_buffer[5] = white;
       }
     }
+    updateLights(side);
     enviroments[side].counters[1]++;
     if (enviroments[side].counters[1] == 3)
     {
@@ -679,35 +659,31 @@ void pattern4(byte side)
       {
         if (side == FRONT)
         {
-          colors11[0] = blue;
-          colors11[4] = blue;
-          ledStrip11.write(colors11, LED_COUNT);
+          front_buffer[0] = blue;
+          front_buffer[4] = blue;
         }
         else
         {
-          colors12[0] = blue;
-          colors12[4] = blue;
-          ledStrip12.write(colors12, LED_COUNT);
+          rear_buffer[0] = blue;
+          rear_buffer[4] = blue;
         }
       }
       else
       {
         if (side == FRONT)
         {
-          colors11[0] = off;
-          colors11[4] = off;
-          ledStrip11.write(colors11, LED_COUNT);
+          front_buffer[0] = off;
+          front_buffer[4] = off;
         }
         else
         {
-          colors12[0] = off;
-          colors12[4] = off;
-          ledStrip12.write(colors12, LED_COUNT);
+          rear_buffer[0] = off;
+          rear_buffer[4] = off;
         }
-        colors11[0] = off;
-        colors11[4] = off;
-        ledStrip11.write(colors11, LED_COUNT);
+        front_buffer[0] = off;
+        front_buffer[4] = off;
       }
+      updateLights(side);
     }
     else if (enviroments[side].counters[0] > 6)
     {
@@ -715,32 +691,29 @@ void pattern4(byte side)
       {
         if (side == FRONT)
         {
-          colors11[5] = red;
-          colors11[9] = red;
-          ledStrip11.write(colors11, LED_COUNT);
+          front_buffer[5] = red;
+          front_buffer[9] = red;
         }
         else
         {
-          colors12[5] = red;
-          colors12[9] = red;
-          ledStrip12.write(colors12, LED_COUNT);
+          rear_buffer[5] = red;
+          rear_buffer[9] = red;
         }
       }
       else
       {
         if (side == FRONT)
         {
-          colors11[5] = off;
-          colors11[9] = off;
-          ledStrip11.write(colors11, LED_COUNT);
+          front_buffer[5] = off;
+          front_buffer[9] = off;
         }
         else
         {
-          colors12[5] = off;
-          colors12[9] = off;
-          ledStrip12.write(colors12, LED_COUNT);
+          rear_buffer[5] = off;
+          rear_buffer[9] = off;
         }
       }
+      updateLights(side);
     }
     enviroments[side].counters[0]++;
     if (enviroments[side].counters[0] == 13)
@@ -757,54 +730,47 @@ void pattern4(byte side)
       {
         if (side == FRONT)
         {
-          colors11[i] = off;
+          front_buffer[i] = off;
         }
         else
         {
-          colors12[i] = off;
+          rear_buffer[i] = off;
         }
       }
       for (byte i = 6; i < 9; i++)
       {
         if (side == FRONT)
         {
-          colors11[i] = off;
+          front_buffer[i] = off;
         }
         else
         {
-          colors12[i] = off;
+          rear_buffer[i] = off;
         }
       }
-      if (side == FRONT)
-      {
-        ledStrip11.write(colors11, LED_COUNT);
-      }
-      else
-      {
-        ledStrip12.write(colors12, LED_COUNT);
-      }
+      updateLights(side);
       enviroments[side].counters[1] = 1;
     }
     if (enviroments[side].counters[1] < 4)
     {
       if (side == FRONT)
       {
-        colors11[enviroments[side].counters[1]] = yellow;
+        front_buffer[enviroments[side].counters[1]] = yellow;
       }
       else
       {
-        colors12[enviroments[side].counters[1]] = yellow;
+        rear_buffer[enviroments[side].counters[1]] = yellow;
       }
     }
     else
     {
       if (side == FRONT)
       {
-        colors11[enviroments[side].counters[1] + 2] = yellow;
+        front_buffer[enviroments[side].counters[1] + 2] = yellow;
       }
       else
       {
-        colors12[enviroments[side].counters[1] + 2] = yellow;
+        rear_buffer[enviroments[side].counters[1] + 2] = yellow;
       }
     }
     enviroments[side].counters[1]++;
@@ -832,35 +798,31 @@ void pattern5(byte side)
       {
         if (side == FRONT)
         {
-          colors11[0] = blue;
-          colors11[4] = blue;
-          ledStrip11.write(colors11, LED_COUNT);
+          front_buffer[0] = blue;
+          front_buffer[4] = blue;
         }
         else
         {
-          colors12[0] = blue;
-          colors12[4] = blue;
-          ledStrip12.write(colors12, LED_COUNT);
+          rear_buffer[0] = blue;
+          rear_buffer[4] = blue;
         }
       }
       else
       {
         if (side == FRONT)
         {
-          colors11[0] = off;
-          colors11[4] = off;
-          ledStrip11.write(colors11, LED_COUNT);
+          front_buffer[0] = off;
+          front_buffer[4] = off;
         }
         else
         {
-          colors12[0] = off;
-          colors12[4] = off;
-          ledStrip12.write(colors12, LED_COUNT);
+          rear_buffer[0] = off;
+          rear_buffer[4] = off;
         }
-        colors11[0] = off;
-        colors11[4] = off;
-        ledStrip11.write(colors11, LED_COUNT);
+        front_buffer[0] = off;
+        front_buffer[4] = off;
       }
+      updateLights(side);
     }
     else if (enviroments[side].counters[0] > 6)
     {
@@ -868,32 +830,29 @@ void pattern5(byte side)
       {
         if (side == FRONT)
         {
-          colors11[5] = red;
-          colors11[9] = red;
-          ledStrip11.write(colors11, LED_COUNT);
+          front_buffer[5] = red;
+          front_buffer[9] = red;
         }
         else
         {
-          colors12[5] = red;
-          colors12[9] = red;
-          ledStrip12.write(colors12, LED_COUNT);
+          rear_buffer[5] = red;
+          rear_buffer[9] = red;
         }
       }
       else
       {
         if (side == FRONT)
         {
-          colors11[5] = off;
-          colors11[9] = off;
-          ledStrip11.write(colors11, LED_COUNT);
+          front_buffer[5] = off;
+          front_buffer[9] = off;
         }
         else
         {
-          colors12[5] = off;
-          colors12[9] = off;
-          ledStrip12.write(colors12, LED_COUNT);
+          rear_buffer[5] = off;
+          rear_buffer[9] = off;
         }
       }
+      updateLights(side);
     }
     enviroments[side].counters[0]++;
     if (enviroments[side].counters[0] == 13)
@@ -910,54 +869,47 @@ void pattern5(byte side)
       {
         if (side == FRONT)
         {
-          colors11[i] = off;
+          front_buffer[i] = off;
         }
         else
         {
-          colors12[i] = off;
+          rear_buffer[i] = off;
         }
       }
       for (byte i = 6; i < 8; i++)
       {
         if (side == FRONT)
         {
-          colors11[i] = off;
+          front_buffer[i] = off;
         }
         else
         {
-          colors12[i] = off;
+          rear_buffer[i] = off;
         }
       }
-      if (side == FRONT)
-      {
-        ledStrip11.write(colors11, LED_COUNT);
-      }
-      else
-      {
-        ledStrip12.write(colors12, LED_COUNT);
-      }
+      updateLights(side);
       enviroments[side].counters[1] = 1;
     }
     if (enviroments[side].counters[1] < 4)
     {
       if (side == FRONT)
       {
-        colors11[9 - enviroments[side].counters[1]] = yellow;
+        front_buffer[9 - enviroments[side].counters[1]] = yellow;
       }
       else
       {
-        colors12[9 - enviroments[side].counters[1]] = yellow;
+        rear_buffer[9 - enviroments[side].counters[1]] = yellow;
       }
     }
     else
     {
       if (side == FRONT)
       {
-        colors11[7 - enviroments[side].counters[1]] = yellow;
+        front_buffer[7 - enviroments[side].counters[1]] = yellow;
       }
       else
       {
-        colors12[7 - enviroments[side].counters[1]] = yellow;
+        rear_buffer[7 - enviroments[side].counters[1]] = yellow;
       }
     }
     enviroments[side].counters[1]++;
@@ -988,20 +940,20 @@ void pattern6(byte side)
       {
         if (side == FRONT)
         {
-          colors11[i] = off;
+          front_buffer[i] = off;
         }
         else
         {
-          colors12[i] = off;
+          rear_buffer[i] = off;
         }
       }
       if (side == FRONT)
       {
-        colors11[enviroments[side].counters[0] - 1] = blue;
+        front_buffer[enviroments[side].counters[0] - 1] = blue;
       }
       else
       {
-        colors12[enviroments[side].counters[0] - 1] = blue;
+        rear_buffer[enviroments[side].counters[0] - 1] = blue;
       }
     }
     else
@@ -1010,30 +962,23 @@ void pattern6(byte side)
       {
         if (side == FRONT)
         {
-          colors11[i] = off;
+          front_buffer[i] = off;
         }
         else
         {
-          colors12[i] = off;
+          rear_buffer[i] = off;
         }
       }
       if (side == FRONT)
       {
-        colors11[7 - enviroments[side].counters[0]] = blue;
+        front_buffer[7 - enviroments[side].counters[0]] = blue;
       }
       else
       {
-        colors12[7 - enviroments[side].counters[0]] = blue;
+        rear_buffer[7 - enviroments[side].counters[0]] = blue;
       }
     }
-    if (side == FRONT)
-    {
-      ledStrip11.write(colors11, LED_COUNT);
-    }
-    else
-    {
-      ledStrip12.write(colors12, LED_COUNT);
-    }
+    updateLights(side);
     enviroments[side].counters[0]++;
     if (enviroments[side].counters[0] == 7)
     {
@@ -1049,20 +994,20 @@ void pattern6(byte side)
       {
         if (side == FRONT)
         {
-          colors11[i] = off;
+          front_buffer[i] = off;
         }
         else
         {
-          colors12[i] = off;
+          rear_buffer[i] = off;
         }
       }
       if (side == FRONT)
       {
-        colors11[10 - enviroments[side].counters[1]] = red;
+        front_buffer[10 - enviroments[side].counters[1]] = red;
       }
       else
       {
-        colors12[10 - enviroments[side].counters[1]] = red;
+        rear_buffer[10 - enviroments[side].counters[1]] = red;
       }
     }
     else
@@ -1071,30 +1016,23 @@ void pattern6(byte side)
       {
         if (side == FRONT)
         {
-          colors11[i] = off;
+          front_buffer[i] = off;
         }
         else
         {
-          colors12[i] = off;
+          rear_buffer[i] = off;
         }
       }
       if (side == FRONT)
       {
-        colors11[enviroments[side].counters[1] + 2] = red;
+        front_buffer[enviroments[side].counters[1] + 2] = red;
       }
       else
       {
-        colors12[enviroments[side].counters[1] + 2] = red;
+        rear_buffer[enviroments[side].counters[1] + 2] = red;
       }
     }
-    if (side == FRONT)
-    {
-      ledStrip11.write(colors11, LED_COUNT);
-    }
-    else
-    {
-      ledStrip12.write(colors12, LED_COUNT);
-    }
+    updateLights(side);
     enviroments[side].counters[1]++;
     if (enviroments[side].counters[1] == 7)
     {
@@ -1108,32 +1046,29 @@ void pattern6(byte side)
     {
       if (side == FRONT)
       {
-        colors11[4] = white;
-        colors11[5] = off;
-        ledStrip11.write(colors11, LED_COUNT);
+        front_buffer[4] = white;
+        front_buffer[5] = off;
       }
       else
       {
-        colors12[4] = white;
-        colors12[5] = off;
-        ledStrip12.write(colors12, LED_COUNT);
+        rear_buffer[4] = white;
+        rear_buffer[5] = off;
       }
     }
     else
     {
       if (side == FRONT)
       {
-        colors11[4] = off;
-        colors11[5] = white;
-        ledStrip11.write(colors12, LED_COUNT);
+        front_buffer[4] = off;
+        front_buffer[5] = white;
       }
       else
       {
-        colors12[4] = off;
-        colors12[5] = white;
-        ledStrip12.write(colors11, LED_COUNT);
+        rear_buffer[4] = off;
+        rear_buffer[5] = white;
       }
     }
+    updateLights(side);
     enviroments[side].counters[2]++;
     if (enviroments[side].counters[2] == 3)
     {
@@ -1142,7 +1077,6 @@ void pattern6(byte side)
     enviroments[side].lastTimes[2] = millis();
   }
 }
-
 
 void pattern7(byte side)
 {
@@ -1201,33 +1135,26 @@ void pattern7(byte side)
       {
         if (side == FRONT)
         {
-          colors11[enviroments[side].lights[3][i]] = red;
+          front_buffer[enviroments[side].lights[3][i]] = red;
         }
         else
         {
-          colors12[enviroments[side].lights[3][i]] = red;
+          rear_buffer[enviroments[side].lights[3][i]] = red;
         }
       }
       else
       {
         if (side == FRONT)
         {
-          colors11[enviroments[side].lights[3][i]] = blue;
+          front_buffer[enviroments[side].lights[3][i]] = blue;
         }
         else
         {
-          colors12[enviroments[side].lights[3][i]] = blue;
+          rear_buffer[enviroments[side].lights[3][i]] = blue;
         }
       }
     }
-    if (side == FRONT)
-    {
-      ledStrip11.write(colors11, LED_COUNT);
-    }
-    else
-    {
-      ledStrip12.write(colors12, LED_COUNT);
-    }
+    updateLights(side);
   }
   for (byte i = 0; i < 6; i++)
   {
@@ -1235,11 +1162,11 @@ void pattern7(byte side)
     {
       if (side == FRONT)
       {
-        colors11[enviroments[side].lights[3][i]] = off;
+        front_buffer[enviroments[side].lights[3][i]] = off;
       }
       else
       {
-        colors12[enviroments[side].lights[3][i]] = off;
+        rear_buffer[enviroments[side].lights[3][i]] = off;
       }
       unsigned long tmp;
       bool avail;
@@ -1262,34 +1189,27 @@ void pattern7(byte side)
       {
         if (side == FRONT)
         {
-          colors11[enviroments[side].lights[3][i]] = red;
+          front_buffer[enviroments[side].lights[3][i]] = red;
         }
         else
         {
-          colors12[enviroments[side].lights[3][i]] = red;
+          rear_buffer[enviroments[side].lights[3][i]] = red;
         }
       }
       else
       {
         if (side == FRONT)
         {
-          colors11[enviroments[side].lights[3][i]] = blue;
+          front_buffer[enviroments[side].lights[3][i]] = blue;
         }
         else
         {
-          colors12[enviroments[side].lights[3][i]] = blue;
+          rear_buffer[enviroments[side].lights[3][i]] = blue;
         }
       }
       enviroments[side].lights[1][i] = (int)random(enviroments[side].minDelay, enviroments[side].maxDelay + 1);
       enviroments[side].lights[2][i] = millis();
-      if (side == FRONT)
-      {
-        ledStrip11.write(colors11, LED_COUNT);
-      }
-      else
-      {
-        ledStrip12.write(colors12, LED_COUNT);
-      }
+      updateLights(side);
     }
   }
 }
@@ -1319,11 +1239,11 @@ void pattern21(byte side)
       {
         if (side == FRONT)
         {
-          colors11[i] = red;
+          front_buffer[i] = red;
         }
         else
         {
-          colors12[i] = red;
+          rear_buffer[i] = red;
         }
       }
     }
@@ -1333,23 +1253,16 @@ void pattern21(byte side)
       {
         if (side == FRONT)
         {
-          colors11[i] = white;
+          front_buffer[i] = white;
         }
         else
         {
-          colors12[i] = white;
+          rear_buffer[i] = white;
         }
       }
     }
     //Write the appropriate array to the appropriate LED strip.
-    if (side == FRONT)
-    {
-      ledStrip11.write(colors11, LED_COUNT);
-    }
-    else
-    {
-      ledStrip12.write(colors12, LED_COUNT);
-    }
+    updateLights(side);
     //Increment the counter and if it is greater than 2 roll it back to 1.
     enviroments[side].counters[0]++;
     if (enviroments[side].counters[0] == 3)
@@ -1360,7 +1273,6 @@ void pattern21(byte side)
     enviroments[side].lastTimes[0] = millis();
   }
 }
-
 
 void pattern22(byte side)
 {
@@ -1379,22 +1291,22 @@ void pattern22(byte side)
       {
         if (side == FRONT)
         {
-          colors11[i] = red;
+          front_buffer[i] = red;
         }
         else
         {
-          colors12[i] = red;
+          rear_buffer[i] = red;
         }
       }
       for (byte i = 1; i < LED_COUNT; i += 2)
       {
         if (side == FRONT)
         {
-          colors11[i] = white;
+          front_buffer[i] = white;
         }
         else
         {
-          colors12[i] = white;
+          rear_buffer[i] = white;
         }
       }
     }
@@ -1404,33 +1316,26 @@ void pattern22(byte side)
       {
         if (side == FRONT)
         {
-          colors11[i] = white;
+          front_buffer[i] = white;
         }
         else
         {
-          colors12[i] = white;
+          rear_buffer[i] = white;
         }
       }
       for (byte i = 1; i < LED_COUNT; i += 2)
       {
         if (side == FRONT)
         {
-          colors11[i] = red;
+          front_buffer[i] = red;
         }
         else
         {
-          colors12[i] = red;
+          rear_buffer[i] = red;
         }
       }
     }
-    if (side == FRONT)
-    {
-      ledStrip11.write(colors11, LED_COUNT);
-    }
-    else
-    {
-      ledStrip12.write(colors12, LED_COUNT);
-    }
+    updateLights(side);
 
     enviroments[side].counters[0]++;
     if (enviroments[side].counters[0] == 3)
@@ -1440,7 +1345,6 @@ void pattern22(byte side)
     enviroments[side].lastTimes[0] = millis();
   }
 }
-
 
 void pattern24(byte side)
 {
@@ -1462,35 +1366,31 @@ void pattern24(byte side)
       {
         if (side == FRONT)
         {
-          colors11[0] = white;
-          colors11[4] = white;
-          ledStrip11.write(colors11, LED_COUNT);
+          front_buffer[0] = white;
+          front_buffer[4] = white;
         }
         else
         {
-          colors12[0] = white;
-          colors12[4] = white;
-          ledStrip12.write(colors12, LED_COUNT);
+          rear_buffer[0] = white;
+          rear_buffer[4] = white;
         }
       }
       else
       {
         if (side == FRONT)
         {
-          colors11[0] = off;
-          colors11[4] = off;
-          ledStrip11.write(colors11, LED_COUNT);
+          front_buffer[0] = off;
+          front_buffer[4] = off;
         }
         else
         {
-          colors12[0] = off;
-          colors12[4] = off;
-          ledStrip12.write(colors12, LED_COUNT);
+          rear_buffer[0] = off;
+          rear_buffer[4] = off;
         }
-        colors11[0] = off;
-        colors11[4] = off;
-        ledStrip11.write(colors11, LED_COUNT);
+        front_buffer[0] = off;
+        front_buffer[4] = off;
       }
+      updateLights(side);
     }
     else if (enviroments[side].counters[0] > 6)
     {
@@ -1498,32 +1398,29 @@ void pattern24(byte side)
       {
         if (side == FRONT)
         {
-          colors11[5] = red;
-          colors11[9] = red;
-          ledStrip11.write(colors11, LED_COUNT);
+          front_buffer[5] = red;
+          front_buffer[9] = red;
         }
         else
         {
-          colors12[5] = red;
-          colors12[9] = red;
-          ledStrip12.write(colors12, LED_COUNT);
+          rear_buffer[5] = red;
+          rear_buffer[9] = red;
         }
       }
       else
       {
         if (side == FRONT)
         {
-          colors11[5] = off;
-          colors11[9] = off;
-          ledStrip11.write(colors11, LED_COUNT);
+          front_buffer[5] = off;
+          front_buffer[9] = off;
         }
         else
         {
-          colors12[5] = off;
-          colors12[9] = off;
-          ledStrip12.write(colors12, LED_COUNT);
+          rear_buffer[5] = off;
+          rear_buffer[9] = off;
         }
       }
+      updateLights(side);
     }
     enviroments[side].counters[0]++;
     if (enviroments[side].counters[0] == 13)
@@ -1540,54 +1437,47 @@ void pattern24(byte side)
       {
         if (side == FRONT)
         {
-          colors11[i] = off;
+          front_buffer[i] = off;
         }
         else
         {
-          colors12[i] = off;
+          rear_buffer[i] = off;
         }
       }
       for (byte i = 6; i < 9; i++)
       {
         if (side == FRONT)
         {
-          colors11[i] = off;
+          front_buffer[i] = off;
         }
         else
         {
-          colors12[i] = off;
+          rear_buffer[i] = off;
         }
       }
-      if (side == FRONT)
-      {
-        ledStrip11.write(colors11, LED_COUNT);
-      }
-      else
-      {
-        ledStrip12.write(colors12, LED_COUNT);
-      }
+      updateLights(side);
       enviroments[side].counters[1] = 1;
     }
     if (enviroments[side].counters[1] < 4)
     {
       if (side == FRONT)
       {
-        colors11[enviroments[side].counters[1]] = yellow;
+        front_buffer[enviroments[side].counters[1]] = yellow;
       }
       else
       {
-        colors12[enviroments[side].counters[1]] = yellow;
+        rear_buffer[enviroments[side].counters[1]] = yellow;
       }
     }
     else
     {
       if (side == FRONT)
       {
-        colors11[enviroments[side].counters[1] + 2] = yellow;
+        front_buffer[enviroments[side].counters[1] + 2] = yellow;
       }
       else
       {
-        colors12[enviroments[side].counters[1] + 2] = yellow;
+        rear_buffer[enviroments[side].counters[1] + 2] = yellow;
       }
     }
     enviroments[side].counters[1]++;
@@ -1615,35 +1505,31 @@ void pattern25(byte side)
       {
         if (side == FRONT)
         {
-          colors11[0] = white;
-          colors11[4] = white;
-          ledStrip11.write(colors11, LED_COUNT);
+          front_buffer[0] = white;
+          front_buffer[4] = white;
         }
         else
         {
-          colors12[0] = white;
-          colors12[4] = white;
-          ledStrip12.write(colors12, LED_COUNT);
+          rear_buffer[0] = white;
+          rear_buffer[4] = white;
         }
       }
       else
       {
         if (side == FRONT)
         {
-          colors11[0] = off;
-          colors11[4] = off;
-          ledStrip11.write(colors11, LED_COUNT);
+          front_buffer[0] = off;
+          front_buffer[4] = off;
         }
         else
         {
-          colors12[0] = off;
-          colors12[4] = off;
-          ledStrip12.write(colors12, LED_COUNT);
+          rear_buffer[0] = off;
+          rear_buffer[4] = off;
         }
-        colors11[0] = off;
-        colors11[4] = off;
-        ledStrip11.write(colors11, LED_COUNT);
+        front_buffer[0] = off;
+        front_buffer[4] = off;
       }
+      updateLights(side);
     }
     else if (enviroments[side].counters[0] > 6)
     {
@@ -1651,32 +1537,29 @@ void pattern25(byte side)
       {
         if (side == FRONT)
         {
-          colors11[5] = red;
-          colors11[9] = red;
-          ledStrip11.write(colors11, LED_COUNT);
+          front_buffer[5] = red;
+          front_buffer[9] = red;
         }
         else
         {
-          colors12[5] = red;
-          colors12[9] = red;
-          ledStrip12.write(colors12, LED_COUNT);
+          rear_buffer[5] = red;
+          rear_buffer[9] = red;
         }
       }
       else
       {
         if (side == FRONT)
         {
-          colors11[5] = off;
-          colors11[9] = off;
-          ledStrip11.write(colors11, LED_COUNT);
+          front_buffer[5] = off;
+          front_buffer[9] = off;
         }
         else
         {
-          colors12[5] = off;
-          colors12[9] = off;
-          ledStrip12.write(colors12, LED_COUNT);
+          rear_buffer[5] = off;
+          rear_buffer[9] = off;
         }
       }
+      updateLights(side);
     }
     enviroments[side].counters[0]++;
     if (enviroments[side].counters[0] == 13)
@@ -1693,61 +1576,53 @@ void pattern25(byte side)
       {
         if (side == FRONT)
         {
-          colors11[i] = off;
+          front_buffer[i] = off;
         }
         else
         {
-          colors12[i] = off;
+          rear_buffer[i] = off;
         }
       }
       for (byte i = 6; i < 8; i++)
       {
         if (side == FRONT)
         {
-          colors11[i] = off;
+          front_buffer[i] = off;
         }
         else
         {
-          colors12[i] = off;
+          rear_buffer[i] = off;
         }
       }
-      if (side == FRONT)
-      {
-        ledStrip11.write(colors11, LED_COUNT);
-      }
-      else
-      {
-        ledStrip12.write(colors12, LED_COUNT);
-      }
+      updateLights(side);
       enviroments[side].counters[1] = 1;
     }
     if (enviroments[side].counters[1] < 4)
     {
       if (side == FRONT)
       {
-        colors11[9 - enviroments[side].counters[1]] = yellow;
+        front_buffer[9 - enviroments[side].counters[1]] = yellow;
       }
       else
       {
-        colors12[9 - enviroments[side].counters[1]] = yellow;
+        rear_buffer[9 - enviroments[side].counters[1]] = yellow;
       }
     }
     else
     {
       if (side == FRONT)
       {
-        colors11[7 - enviroments[side].counters[1]] = yellow;
+        front_buffer[7 - enviroments[side].counters[1]] = yellow;
       }
       else
       {
-        colors12[7 - enviroments[side].counters[1]] = yellow;
+        rear_buffer[7 - enviroments[side].counters[1]] = yellow;
       }
     }
     enviroments[side].counters[1]++;
     enviroments[side].lastTimes[1] = millis();
   }
 }
-
 
 void pattern27(byte side)
 {
@@ -1806,33 +1681,26 @@ void pattern27(byte side)
       {
         if (side == FRONT)
         {
-          colors11[enviroments[side].lights[3][i]] = red;
+          front_buffer[enviroments[side].lights[3][i]] = red;
         }
         else
         {
-          colors12[enviroments[side].lights[3][i]] = red;
+          rear_buffer[enviroments[side].lights[3][i]] = red;
         }
       }
       else
       {
         if (side == FRONT)
         {
-          colors11[enviroments[side].lights[3][i]] = white;
+          front_buffer[enviroments[side].lights[3][i]] = white;
         }
         else
         {
-          colors12[enviroments[side].lights[3][i]] = white;
+          rear_buffer[enviroments[side].lights[3][i]] = white;
         }
       }
     }
-    if (side == FRONT)
-    {
-      ledStrip11.write(colors11, LED_COUNT);
-    }
-    else
-    {
-      ledStrip12.write(colors12, LED_COUNT);
-    }
+    updateLights(side);
   }
   for (byte i = 0; i < 6; i++)
   {
@@ -1840,11 +1708,11 @@ void pattern27(byte side)
     {
       if (side == FRONT)
       {
-        colors11[enviroments[side].lights[3][i]] = off;
+        front_buffer[enviroments[side].lights[3][i]] = off;
       }
       else
       {
-        colors12[enviroments[side].lights[3][i]] = off;
+        rear_buffer[enviroments[side].lights[3][i]] = off;
       }
       unsigned long tmp;
       bool avail;
@@ -1867,34 +1735,27 @@ void pattern27(byte side)
       {
         if (side == FRONT)
         {
-          colors11[enviroments[side].lights[3][i]] = red;
+          front_buffer[enviroments[side].lights[3][i]] = red;
         }
         else
         {
-          colors12[enviroments[side].lights[3][i]] = red;
+          rear_buffer[enviroments[side].lights[3][i]] = red;
         }
       }
       else
       {
         if (side == FRONT)
         {
-          colors11[enviroments[side].lights[3][i]] = white;
+          front_buffer[enviroments[side].lights[3][i]] = white;
         }
         else
         {
-          colors12[enviroments[side].lights[3][i]] = white;
+          rear_buffer[enviroments[side].lights[3][i]] = white;
         }
       }
       enviroments[side].lights[1][i] = (int)random(enviroments[side].minDelay, enviroments[side].maxDelay + 1);
       enviroments[side].lights[2][i] = millis();
-      if (side == FRONT)
-      {
-        ledStrip11.write(colors11, LED_COUNT);
-      }
-      else
-      {
-        ledStrip12.write(colors12, LED_COUNT);
-      }
+      updateLights(side);
     }
   }
 }
